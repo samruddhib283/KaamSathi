@@ -1,30 +1,34 @@
 const router = require('express').Router();
-
-// Mock shifts storage (in production, use MongoDB)
-let shifts = [];
-let nextId = 1;
+const Shift = require('../models/Shift');
+const Worker = require('../models/worker');
 
 // Create a new shift/booking
 router.post('/', async (req, res) => {
   try {
-    const shift = {
-      _id: (nextId++).toString(),
-      ...req.body,
-      createdAt: new Date(),
-      updatedAt: new Date()
-    };
+    const shift = new Shift(req.body);
+    const savedShift = await shift.save();
     
-    shifts.push(shift);
-    console.log('New shift created:', shift);
-    res.status(201).json(shift);
+    // Populate worker details
+    await savedShift.populate('workerId', 'name phone categories dayWage');
+    
+    console.log('New shift created:', savedShift._id);
+    res.status(201).json(savedShift);
   } catch (error) {
+    console.error('Shift creation error:', error);
     res.status(500).json({ error: error.message });
   }
 });
 
-// Get all shifts (for testing)
-router.get('/', (req, res) => {
-  res.json(shifts);
+// Get all shifts
+router.get('/', async (req, res) => {
+  try {
+    const shifts = await Shift.find()
+      .populate('workerId', 'name phone categories dayWage')
+      .sort({ createdAt: -1 });
+    res.json(shifts);
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
 });
 
 module.exports = router;
